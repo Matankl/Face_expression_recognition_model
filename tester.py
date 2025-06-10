@@ -1,52 +1,33 @@
-import os
-import cv2
-from torchvision import datasets
-import mediapipe as mp
-from tqdm import tqdm
+from collections import defaultdict
+from DataLoader import FaceExpressionLandmarksDS
+import torch
+import tqdm
 
-# Path to the dataset folder that contains 'train' and 'val' subfolders
-DATA_DIR = r"C:\Users\matan\Desktop\Code\DataSets\Face_expression_recognition"
+# Path to dataset root (containing "train" and "val" folders)
+DATASET_PATH = r"C:\Users\matan\Desktop\Code\DataSets\Face_expression_recognition"
 
-# Initialize MediaPipe Face Mesh
-mp_face_mesh = mp.solutions.face_mesh
-face_mesh = mp_face_mesh.FaceMesh(
-    static_image_mode=True,
-    max_num_faces=1,
-    refine_landmarks=False,
-    min_detection_confidence=0.5
-)
+# Load both train and val
+splits = ["train", "validation"]
+class_counts = defaultdict(int)
+detected_counts = defaultdict(int)
 
-def count_successful_detections(split):
-    # Load images using torchvision
-    dataset = datasets.ImageFolder(root=os.path.join(DATA_DIR, split))
+for split in splits:
+    dataset = FaceExpressionLandmarksDS(DATASET_PATH, split=split)
+    idx_to_class = {v: k for k, v in dataset.ds.class_to_idx.items()}  # 0→"angry", etc.
+    print("dataset size:", len(dataset))
+    # for i in tqdm(range(len(dataset)), desc=f"Processing {split}"):
+    for i in range(len(dataset)):
+        print(f"Processing {split} image {i+1}/{len(dataset)}")
+        _, landmarks, label = dataset[i]
+        class_counts[label] += 1
 
-    total = len(dataset)
-    success = 0
+        if torch.any(landmarks != 0):  # At least one nonzero coordinate
+            detected_counts[label] += 1
 
-    print(f"Checking {split} images...")
-    for img_path, _ in tqdm(dataset.imgs, total=total):
-        img = cv2.imread(img_path)
-        if img is None:
-            continue  # skip unreadable images
-
-        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        results = face_mesh.process(img_rgb)
-
-        if results.multi_face_landmarks:
-            success += 1
-
-    return success, total
-
-if __name__ == "__main__":
-    success_train, total_train = count_successful_detections("train")
-    success_val, total_val = count_successful_detections("validation")
-
-    total_images = total_train + total_val
-    total_success = success_train + success_val
-    percentage = 100 * total_success / total_images
-
-    print("\n──── Landmark Detection Summary ────")
-    print(f"Train success: {success_train} / {total_train}")
-    print(f"Val success  : {success_val} / {total_val}")
-    print(f"Total success: {total_success} / {total_images}")
-    print(f"Detection success rate: {percentage:.2f}%")
+# Print results
+print(f"{'Class':<10} {'Total':>6} {'Detected':>9}")
+for class_id in sorted(class_counts.keys()):
+    class_name = idx_to_class[class_id]
+    total = class_counts[class_id]
+    detected = detected_counts[class_id]
+    print(f"{class_name} {total} {detected}")

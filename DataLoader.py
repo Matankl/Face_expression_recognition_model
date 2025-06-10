@@ -67,17 +67,31 @@ class FaceExpressionLandmarksDS(Dataset):
         return len(self.ds)
 
     def __getitem__(self, idx: int):
-        # torchvision gives transformed PIL image & label
+        # Get image tensor and label from ImageFolder
         img_tensor, label = self.ds[idx]
 
-        # Need original BGR pixels (48×48) for landmarks
+        # Read original BGR image for landmark detection
         img_path, _ = self.ds.imgs[idx]
         img_bgr = cv2.imread(img_path, cv2.IMREAD_COLOR)
-        h, w, _ = img_bgr.shape                              # should be 48,48
+        h, w, _ = img_bgr.shape
 
-        # MediaPipe expects RGB
+        # Detect landmarks using MediaPipe Face Mesh
         results = _face_mesh.process(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB))
-        lm_tensor = self._mp_landmarks_to_tensor(results, (h, w))  # [468,2]
+        lm_tensor = self._mp_landmarks_to_tensor(results, (h, w))  # shape [468, 2]
+
+        # Filter: Keep only expression-relevant landmarks
+        expression_indices = list(range(55, 66))  # left eyebrow
+        expression_indices += list(range(285, 296))  # right eyebrow
+        expression_indices += list(range(33, 42))  # left eye
+        expression_indices += list(range(133, 142))  # right eye
+        expression_indices += [6, 7, 8, 97, 98, 168, 169, 170, 171, 172]  # nose
+        expression_indices += list(range(61, 89))  # outer mouth
+        expression_indices += list(range(291, 319))  # inner mouth
+        expression_indices = sorted(set(expression_indices))
+
+        lm_tensor = lm_tensor[expression_indices, :]  # shape → [~100, 2]
+
+        print("Landmarks shape:", lm_tensor.shape)
 
         return img_tensor, lm_tensor, label
 
