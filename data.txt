@@ -1,0 +1,8 @@
+Class       Total  Detected
+angry        4953      4346
+disgust       547       473
+fear         5121      4606
+happy        8989      8631
+neutral      6198      5964
+sad          6077      5369
+surprise     4002      3773
