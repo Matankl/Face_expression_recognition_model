@@ -8,6 +8,8 @@ import mediapipe as mp
 import numpy as np
 from typing import Tuple
 
+DEBUG = False
+
 # ────────────────────────────────────────────────────────────────────────────────
 #  Helper: initialise MediaPipe Face Mesh once (fast on CPU for 48×48 images)
 # ────────────────────────────────────────────────────────────────────────────────
@@ -79,19 +81,26 @@ class FaceExpressionLandmarksDS(Dataset):
         results = _face_mesh.process(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB))
         lm_tensor = self._mp_landmarks_to_tensor(results, (h, w))  # shape [468, 2]
 
-        # Filter: Keep only expression-relevant landmarks
-        expression_indices = list(range(55, 66))  # left eyebrow
-        expression_indices += list(range(285, 296))  # right eyebrow
-        expression_indices += list(range(33, 42))  # left eye
-        expression_indices += list(range(133, 142))  # right eye
-        expression_indices += [6, 7, 8, 97, 98, 168, 169, 170, 171, 172]  # nose
-        expression_indices += list(range(61, 89))  # outer mouth
-        expression_indices += list(range(291, 319))  # inner mouth
-        expression_indices = sorted(set(expression_indices))
+        # Normalize landmarks to [0, 1] range
+        lm_tensor[:, 0] /= w  # x-coords normalized by width
+        lm_tensor[:, 1] /= h  # y-coords normalized by height
 
-        lm_tensor = lm_tensor[expression_indices, :]  # shape → [~100, 2]
+        # take every 2nd point (x,y) from the 468 points
+        # lm_tensor = lm_tensor[::2]
 
-        print("Landmarks shape:", lm_tensor.shape)
+        # # Filter: Keep only expression-relevant landmarks (e.g., eyes, eyebrows, mouth) I DONT LIKE THIS FILTERING
+        # expression_indices = list(range(55, 66))  # left eyebrow
+        # expression_indices += list(range(285, 296))  # right eyebrow
+        # expression_indices += list(range(33, 42))  # left eye
+        # expression_indices += list(range(133, 142))  # right eye
+        # expression_indices += [6, 7, 8, 97, 98, 168, 169, 170, 171, 172]  # nose
+        # expression_indices += list(range(61, 89))  # outer mouth
+        # expression_indices += list(range(291, 319))  # inner mouth
+        # expression_indices = sorted(set(expression_indices))
+        #
+        # lm_tensor = lm_tensor[expression_indices, :]  # shape → [~100, 2]
+        if DEBUG:
+            print("Landmarks shape:", lm_tensor.shape)
 
         return img_tensor, lm_tensor, label
 
@@ -116,6 +125,6 @@ def make_loaders(data_dir: str,
                             shuffle=False,
                             num_workers=num_workers,
                             pin_memory=True)
-
-    print("Class-to-index mapping:", train_ds.ds.class_to_idx)
+    if DEBUG:
+        print("Class-to-index mapping:", train_ds.ds.class_to_idx)
     return train_loader, val_loader
