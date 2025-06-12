@@ -5,6 +5,25 @@ using MediaPipe landmarks as input to a Graph Convolutional Network (GCN).
 
 """
 
+from __future__ import annotations
+
+import os
+import warnings
+import logging
+
+# ────────────────────────────────────────────────────────────────────────────────
+#  Quiet noisy libraries *before* they import
+# ────────────────────────────────────────────────────────────────────────────────
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")      # TensorFlow / MediaPipe
+os.environ.setdefault("GLOG_minloglevel", "2")           # Mediapipe C++ backend
+warnings.filterwarnings("ignore", category=UserWarning)   # torch pin_memory, etc.
+logging.getLogger("tensorflow").setLevel(logging.ERROR)
+try:
+    from absl import logging as absl_logging
+    absl_logging.set_verbosity(absl_logging.ERROR)
+except ImportError:
+    pass  # absl optional
+
 from pathlib import Path
 from typing import Tuple
 import torch
@@ -12,13 +31,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
-from tqdm import tqdm
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
-print(torch.__version__)       # e.g., '2.2.0'
-print(torch.version.cuda)      # e.g., '11.8' or None for CPU
-
-from torch_cluster import knn_graph
-print("✅ torch-cluster is working!")
 
 
 
@@ -38,6 +51,7 @@ except ImportError as e:
 #  Import the dataset class
 # ────────────────────────────────────────────────────────────────────────────────
 from DataLoader import FaceExpressionLandmarksDS
+from const import *
 
 
 # ────────────────────────────────────────────────────────────────────────────────
@@ -114,9 +128,9 @@ def evaluate(model: nn.Module, loader: PyGDataLoader, device: torch.device) -> T
     f1 = f1_score(y_true, y_pred, average='weighted', zero_division=0)
 
     # print metrics
-    print(f"Loss: {loss_sum / total:.4f} | acc: {acc:.4f} | precision: {precision:.4f} | recall: {recall:.4f} | f1: {f1:.4f}")
+    print(f"Val Loss: {loss_sum / total:.4f} | acc: {acc:.4f} | precision: {precision:.4f} | recall: {recall:.4f} | f1: {f1:.4f}")
 
-    return loss_sum / total, correct / total, acc, precision, recall, f1
+    return loss_sum / total, acc, precision, recall, f1
 
 
 # ────────────────────────────────────────────────────────────────────────────────
@@ -126,7 +140,7 @@ def train_epoch(model: nn.Module, loader: PyGDataLoader, optimizer, device: torc
     model.train()
     criterion = nn.CrossEntropyLoss()
     running_loss = 0.0
-    for batch in tqdm(loader, desc="Train", leave=False):
+    for batch in loader:
         batch = batch.to(device)
         optimizer.zero_grad(set_to_none=True)
         loss = criterion(model(batch), batch.y)
@@ -155,40 +169,30 @@ def make_graph_loaders(data_dir: str, batch_size: int, num_workers: int = 2, k: 
 #  Main entry point
 # ────────────────────────────────────────────────────────────────────────────────
 def main():
-    data_dir = r"C:\Users\matan\Desktop\Code\DataSets\Face_expression_recognition"
-    out_dir = r"C:\Users\matan\Desktop\Code\Face_expression_recognition_model\Trained GNN models"
-    batch_size = 64
-    num_workers = 8
-    knearest_neighbors = 8
-    epochs = 30
-    lr = 1e-3
-    hidden = 64
-
-
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using {device}")
 
-    train_loader, val_loader = make_graph_loaders(data_dir, batch_size,
-                                                  num_workers, knearest_neighbors)
-    model = LandmarkGCN(in_channels=2, hidden=hidden, num_classes=7).to(device)
+    train_loader, val_loader = make_graph_loaders(DATA_DIR, BATCH_SIZE,
+                                                  WORKERS_NUM, K_NEAREST_NEIGHBOR)
+    model = LandmarkGCN(in_channels=2, hidden=HIDDEN, num_classes=7).to(device)
 
     optimizer = AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
-    scheduler = CosineAnnealingLR(optimizer, T_max=epochs)
+    scheduler = CosineAnnealingLR(optimizer, T_max=EPOCHS)
 
     best_val_acc = 0.0
-    for epoch in range(1, epochs + 1):
+    for epoch in range(1, EPOCHS + 1):
         train_loss = train_epoch(model, train_loader, optimizer, device)
-        val_loss, val_acc = evaluate(model, val_loader, device)
+        val_loss, val_acc, val_precision, val_recall, val_f1 = evaluate(model, val_loader, device)
         scheduler.step()
 
-        print(f"[Epoch {epoch:02d}/{epochs}] "
+        print(f"[Epoch {epoch:02d}/{EPOCHS}] "
               f"train_loss={train_loss:.4f} | "
               f"val_loss={val_loss:.4f} | val_acc={val_acc*100:.2f}%")
 
         # save best model
         if val_acc > best_val_acc:
             best_val_acc = val_acc
-            torch.save(model.state_dict(), Path(out_dir) / "best_model.pt")
+            torch.save(model.state_dict(), Path(OUT_DIR) / "best_model.pt")
 
     print("Training complete. Best val accuracy: {:.2f}%".format(best_val_acc * 100))
 
