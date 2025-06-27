@@ -23,9 +23,7 @@ Press **q** in the video window to quit.
 """
 
 import time
-import argparse
 from pathlib import Path
-
 import cv2  # OpenCV for video capture and drawing
 import torch  # PyTorch for inference
 from torchvision import transforms  # Standard image transforms

@@ -23,6 +23,7 @@ torch.backends.cuda.enable_mem_efficient_sdp(True)
 CONFIG = {
     # Dataset parameters
     'data_dir': r'C:\Users\matan\Desktop\Code\DataSets\Face_expression_recognition',
+    'data_dir2': r'C:\Users\matan\Desktop\Code\DataSets\Face_expression_recognition',
     'num_classes': 7,
     'batch_size': 64,
     'num_workers': 20,
@@ -30,7 +31,7 @@ CONFIG = {
 
     # Training parameters
     'epochs': 50,
-    'patience': 7,
+    'patience': 5,
     'learning_rate': 5e-3,
     'weight_decay': 0.03,
     'min_lr': 1e-6,

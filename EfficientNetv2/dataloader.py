@@ -1,8 +1,6 @@
 import os
 import cv2
-import torch
-import numpy as np
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, ConcatDataset
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
@@ -98,7 +96,7 @@ def test_dataloader(data_dir, batch_size=32, num_workers=4, image_size=224):
     
     return test_loader
 
-def get_train_dataloaders(data_dir, batch_size=32, num_workers=4, image_size=224):
+def get_train_dataloaders(data_dir, batch_size=32, num_workers=4, image_size=224, data_dir2=None):
     train_dataset = FERDataset(
         root_dir=data_dir,
         mode='train',
@@ -112,7 +110,24 @@ def get_train_dataloaders(data_dir, batch_size=32, num_workers=4, image_size=224
         transform=get_val_transform(),
         image_size=image_size
     )
-    
+    if data_dir2 is not None:
+        train_dataset2 = FERDataset(
+            root_dir=data_dir2,
+            mode='train',
+            transform=get_train_transform(),
+            image_size=image_size
+        )
+
+        val_dataset2 = FERDataset(
+            root_dir=data_dir2,
+            mode='validation',
+            transform=get_val_transform(),
+            image_size=image_size
+        )
+        train_dataset = ConcatDataset([train_dataset, train_dataset2])
+        val_dataset = ConcatDataset([val_dataset, val_dataset2])
+
+
     train_loader = DataLoader(
         train_dataset,
         batch_size=batch_size,
