@@ -1,0 +1,10 @@
+Top-1 Evaluation:
+  Accuracy:  43.22%
+  Precision: 30.90%
+  Recall:    32.95%
+  F1-score:  28.64%
+
+Top-2 Evaluation:
+  Accuracy:  59.45%
+Top-3 Evaluation:
+  Accuracy:  73.12%

@@ -23,7 +23,7 @@ torch.backends.cuda.enable_mem_efficient_sdp(True)
 CONFIG = {
     # Dataset parameters
     'data_dir': r'C:\Users\matan\Desktop\Code\DataSets\Face_expression_recognition',
-    'data_dir2': r'C:\Users\matan\Desktop\Code\DataSets\Face_expression_recognition',
+    'data_dir2': r'C:\Users\matan\Desktop\Code\DataSets\affectnet',
     'num_classes': 7,
     'batch_size': 64,
     'num_workers': 20,
@@ -97,7 +97,9 @@ def setup_training():
         CONFIG['data_dir'],
         CONFIG['batch_size'],
         CONFIG['num_workers'],
-        CONFIG['image_size']
+        CONFIG['image_size'],
+        CONFIG['data_dir2']
+
     )
     print(f'Number of Training Samples: {len(train_loader.dataset)}')
     print(f'Number of Validation Samples: {len(val_loader.dataset)}')

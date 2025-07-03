@@ -1,0 +1,10 @@
+Top-1 Evaluation:
+  Accuracy:  0.4676
+  Precision: 0.5109
+  Recall:    0.4080
+  F1-score:  0.4226
+
+Top-2 Evaluation:
+  Accuracy:  0.6312
+Top-3 Evaluation:
+  Accuracy:  0.7590

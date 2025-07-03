@@ -1,12 +1,13 @@
 
 
 DATA_DIR = r"C:\Users\matan\Desktop\Code\DataSets\Face_expression_recognition"
+DATA_DIR2 = r"C:\Users\matan\Desktop\Code\DataSets\affectnet"
 OUT_DIR_GNN = r"/GNN model/Trained_GNN_models"
-OUT_DIR_RF = r"/GNN model/Trained_Random_Forest"
+OUT_DIR_FCC = r"C:\Users\matan\Desktop\Code\Face_expression_recognition_model\Fully conected"
 BATCH_SIZE = 64
 WORKERS_NUM = 1
 K_NEAREST_NEIGHBOR = 8
-EPOCHS = 30
+EPOCHS = 60
 lr = 2e-2
 HIDDEN = 64
 
