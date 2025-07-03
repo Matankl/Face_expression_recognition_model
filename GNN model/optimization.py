@@ -10,7 +10,7 @@ Run:
 """
 
 # ── global log/warning suppression ──────────────────────────────
-import os, warnings, logging, absl.logging
+import os, warnings, absl.logging
 # 1) TensorFlow / TF-Lite / XNNPACK
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"        # 0=all, 1=info, 2=warning, 3=error
 # 2) MediaPipe / absl & GLOG
@@ -39,7 +39,6 @@ from const import *
 
 # >>> import objects from your training script <<<
 from GNNmodel import evaluate, train_epoch, LandmarkGCN, make_graph_loaders
-from DataLoader import FaceExpressionLandmarksDS
 
 
 def objective(trial: Trial, data_dir: str) -> float:

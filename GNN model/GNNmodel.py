@@ -68,7 +68,7 @@ class LandmarksGraphDS(torch.utils.data.Dataset):
         return len(self.base_ds)
 
     def __getitem__(self, idx):
-        _img, lms, label = self.base_ds[idx]    # image tensor not used here
+        _img, lms, features, label = self.base_ds[idx]    # image tensor not used here
         data = Data(x=lms.clone(),              # node features (2‑D coordinates)
                     pos=lms.clone(),            # positional info for KNNGraph
                     y=torch.tensor(label))
@@ -192,7 +192,7 @@ def main():
         # save best model
         if val_acc > best_val_acc:
             best_val_acc = val_acc
-            torch.save(model.state_dict(), Path(OUT_DIR) / "best_model.pt")
+            torch.save(model.state_dict(), Path(OUT_DIR_GNN) / "best_model.pt")
 
     print("Training complete. Best val accuracy: {:.2f}%".format(best_val_acc * 100))
 

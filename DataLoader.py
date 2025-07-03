@@ -5,9 +5,13 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import datasets, transforms
 import mediapipe as mp
-import numpy as np
 from typing import Tuple
+import insightface
+import numpy as np
 
+# Initialize the model once
+_insight_model = insightface.app.FaceAnalysis(name='buffalo_l', providers=['CPUExecutionProvider'])
+_insight_model.prepare(ctx_id=0)  # use -1 for CPU, 0+ for GPU
 DEBUG = False
 
 # ────────────────────────────────────────────────────────────────────────────────
@@ -62,6 +66,29 @@ class FaceExpressionLandmarksDS(Dataset):
 
         return torch.from_numpy(coords)                   # → torch.float32
 
+
+    # ────────────────────────────────────────────────────────────────────────────
+    #  Feature extructor using InsightFace buffalo_l model
+    # ────────────────────────────────────────────────────────────────────────────
+    @staticmethod
+    def _get_embedding(img_path: str) -> torch.Tensor:
+        try:
+            # Read image using cv2
+            img_bgr = cv2.imread(img_path)
+            if img_bgr is None:
+                raise ValueError("Image could not be read")
+
+            # Get face embedding (assumes single face)
+            faces = _insight_model.get(img_bgr)
+            if len(faces) == 0:
+                raise ValueError("No face detected")
+
+            emb = faces[0].embedding  # numpy array, shape (512,)
+            return torch.tensor(emb, dtype=torch.float32)
+        except Exception as e:
+            print(f"Embedding failed for {img_path}: {e}")
+            return torch.zeros(512, dtype=torch.float32)  # ArcFace/InsightFace size
+
     # ────────────────────────────────────────────────────────────────────────────
     #  Standard dataset methods
     # ────────────────────────────────────────────────────────────────────────────
@@ -85,24 +112,13 @@ class FaceExpressionLandmarksDS(Dataset):
         lm_tensor[:, 0] /= w  # x-coords normalized by width
         lm_tensor[:, 1] /= h  # y-coords normalized by height
 
-        # take every 2nd point (x,y) from the 468 points
-        # lm_tensor = lm_tensor[::2]
-
-        # # Filter: Keep only expression-relevant landmarks (e.g., eyes, eyebrows, mouth) I DONT LIKE THIS FILTERING
-        # expression_indices = list(range(55, 66))  # left eyebrow
-        # expression_indices += list(range(285, 296))  # right eyebrow
-        # expression_indices += list(range(33, 42))  # left eye
-        # expression_indices += list(range(133, 142))  # right eye
-        # expression_indices += [6, 7, 8, 97, 98, 168, 169, 170, 171, 172]  # nose
-        # expression_indices += list(range(61, 89))  # outer mouth
-        # expression_indices += list(range(291, 319))  # inner mouth
-        # expression_indices = sorted(set(expression_indices))
-        #
-        # lm_tensor = lm_tensor[expression_indices, :]  # shape → [~100, 2]
         if DEBUG:
             print("Landmarks shape:", lm_tensor.shape)
 
-        return img_tensor, lm_tensor, label
+        # Extract VGG-Face embedding using DeepFace
+        # embedding_tensor = self._get_embedding(img_path)  # shape [512]
+        embedding_tensor = None
+        return img_tensor, lm_tensor, embedding_tensor, label
 
 
 # ────────────────────────────────────────────────────────────────────────────────

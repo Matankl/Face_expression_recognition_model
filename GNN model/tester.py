@@ -1,7 +1,6 @@
 from collections import defaultdict
 from DataLoader import FaceExpressionLandmarksDS
 import torch
-import tqdm
 
 # Path to dataset root (containing "train" and "val" folders)
 DATASET_PATH = r"C:\Users\matan\Desktop\Code\DataSets\Face_expression_recognition"
@@ -18,7 +17,7 @@ for split in splits:
     # for i in tqdm(range(len(dataset)), desc=f"Processing {split}"):
     for i in range(len(dataset)):
         print(f"Processing {split} image {i+1}/{len(dataset)}")
-        _, landmarks, label = dataset[i]
+        _, landmarks, features, label = dataset[i]
         class_counts[label] += 1
 
         if torch.any(landmarks != 0):  # At least one nonzero coordinate
