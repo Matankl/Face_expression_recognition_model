@@ -75,7 +75,6 @@ def main():
     print("Evaluating...")
     y_pred = clf.predict_proba(X_val)
     evaluate_and_save(np.array(y_val), y_pred, "evaluation_results.txt")
-    print(classification_report(y_val, y_pred))
 
     print("Plotting confusion matrix...")
     class_names = sorted(set(y_val))
