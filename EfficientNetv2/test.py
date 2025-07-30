@@ -1,101 +1,181 @@
+"""
+eval_metrics.py
+Evaluate a trained EfficientFER model:
+  • accuracy
+  • precision, recall, F1 (per-class & macro)
+  • confusion-matrix plot
+
+Assumes:
+  – best_model.pth was saved by your training code
+  – get_train_dataloaders() is available and returns (train_loader, val_loader)
+  – EfficientFER architecture and EMA wrapper are unchanged
+"""
+
 import torch
-from dataloader import test_dataloader
-from efficientfer import EfficientFER 
-import matplotlib.pyplot as plt
+from tqdm import tqdm
+import torch.nn.functional as F
+from ema_pytorch import EMA
+from efficientfer import EfficientFER
+from dataloader import get_train_dataloaders
+from pathlib import Path
+from sklearn.metrics import (
+    confusion_matrix,
+    accuracy_score,
+    precision_recall_fscore_support,
+    classification_report,
+)
 import seaborn as sns
-from sklearn.metrics import confusion_matrix, classification_report
+import matplotlib.pyplot as plt
 import numpy as np
 
-def test():
-    # Device selection
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f"Using device: {device}")
-    
-    # Model loading
-    model = EfficientFER(num_classes=7)
-    checkpoint_path = 'checkpoints/best_model.pth'
-    
-    try:
-        # Model weights load
-        checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=True)
-      
-        state_dict = checkpoint['model_state_dict']
-        
-        # Check state dict keys
-        first_key = list(state_dict.keys())[0]
-       
-        
-        # Check model structure
-        model_keys = set(model.state_dict().keys())
-        state_dict_keys = set(state_dict.keys())
-       
-        # Load state dict
-        load_result = model.load_state_dict(state_dict, strict=False)
-        
-        model.to(device)
-        model.eval()
-        print("\nModel loaded and eval mode activated.")
-        
-    except Exception as e:
-        print(f"Error loading model: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return
-    
-    # Test data load
-    test_loader = test_dataloader('fer2013_extended', 256, 12, image_size=224)
-    
-    # Predictions and real labels
-    all_predictions = []
-    all_labels = []
-    
-    # Test process
-    with torch.no_grad():
-        for batch_idx, (images, labels) in enumerate(test_loader):
-            images = images.to(device)
-            outputs = model(images)
-            
-            _, predicted = torch.max(outputs.data, 1)
-            
-            all_predictions.extend(predicted.cpu().numpy())
-            all_labels.extend(labels.cpu().numpy())
-    
-    # Class-wise accuracy calculation
-    class_correct = [0] * 7
-    class_total = [0] * 7
-    for i in range(len(all_labels)):
-        label = all_labels[i]
-        pred = all_predictions[i]
-        if label == pred:
-            class_correct[label] += 1
-        class_total[label] += 1
+# --------------------------------------------------------------------------------------
+# Configuration – keep it in sync with the one used in training
+# --------------------------------------------------------------------------------------
+CONFIG = {
+    'data_dir':  r'C:\Users\matan\Desktop\Code\DataSets\Face_expression_recognition',
+    'data_dir2': r'C:\Users\matan\Desktop\Code\DataSets\affectnet',
+    'num_classes': 7,
+    'batch_size': 64,
+    'num_workers': 1,
+    'image_size': 224,
+    'checkpoint_path': Path('checkpoints') / 'best_model.pth',
+    'device': 'cuda' if torch.cuda.is_available() else 'cpu',
+    'cm_fig_path': 'confusion_matrix.png',
+    'class_names': ['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral'],  # edit if different
+}
 
-    # Class-wise accuracy print
-    print("\nClass-wise accuracy:")
-    for i in range(7):
-        accuracy = 100 * class_correct[i] / class_total[i] if class_total[i] > 0 else 0
-        print(f'Sınıf {i}: {accuracy:.2f}% ({class_correct[i]}/{class_total[i]})')
-    
-    # Confusion Matrix creation
-    cm = confusion_matrix(all_labels, all_predictions)
-    
-    # General test accuracy calculation
-    test_accuracy = np.mean(np.array(all_labels) == np.array(all_predictions)) * 100
-    print(f"\nGeneral Test Accuracy: {test_accuracy:.4f}%")
-    
-    # Confusion Matrix visualization
-    plt.figure(figsize=(10, 8))
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
-    plt.title('Confusion Matrix')
-    plt.ylabel('Real Values')
-    plt.xlabel('Predicted Values')
-    plt.savefig('confusion_matrix.png')
-    plt.close()
-    
-    # Classification Report print
-    report = classification_report(all_labels, all_predictions)
-    print("\nClassification Report:")
-    print(report)
+# --------------------------------------------------------------------------------------
+# Utility – create model, wrap in EMA, and load the checkpoint
+# --------------------------------------------------------------------------------------
+def load_ema_model(checkpoint_path: Path) -> EMA:
+    """
+    Rebuild the EfficientFER + EMA wrapper and load weights from a checkpoint.
+    Returns the EMA *wrapper* so that `ema_model.ema_model` gives the averaged net.
+    """
+    # 1. Build the base network
+    model = EfficientFER(num_classes=CONFIG['num_classes']).to(CONFIG['device'])
 
-if __name__ == '__main__':
-    test()
+    # 2. Build an EMA wrapper with identical hyper-params to training
+    ema_model = EMA(
+        model,
+        beta=0.999,
+        update_after_step=100,
+        update_every=1,
+    ).to(CONFIG['device'])
+
+    # 3. Load checkpoint (weights, not optimizer/scheduler)
+    ckpt = torch.load(checkpoint_path, map_location=CONFIG['device'])
+    ema_model.load_state_dict(ckpt['ema_state_dict'])  # 👈 averaged weights
+    ema_model.eval()                                   # inference-only
+    return ema_model
+
+
+# --------------------------------------------------------------------------------------
+# Evaluation loop
+# --------------------------------------------------------------------------------------
+@torch.no_grad()
+def evaluate(ema_model: EMA, loader):
+    """
+    Iterate over `loader`, accumulate predictions / labels, and compute metrics.
+    """
+    all_preds, all_labels = [], []
+
+    for imgs, labels in tqdm(loader, desc="Evaluating", leave=False):
+        imgs   = imgs.to(CONFIG['device'])
+        labels = labels.to(CONFIG['device'])
+
+        logits = ema_model(imgs)            # EMA wrapper is callable
+        preds  = torch.argmax(logits, dim=1)
+
+        all_preds.append(preds.cpu())
+        all_labels.append(labels.cpu())
+
+    preds  = torch.cat(all_preds)
+    labels = torch.cat(all_labels)
+
+    # --- global metrics ---
+    acc = accuracy_score(labels, preds)
+    prec, rec, f1, _ = precision_recall_fscore_support(
+        labels, preds, labels=range(CONFIG['num_classes']), average=None, zero_division=0
+    )
+    prec_macro, rec_macro, f1_macro, _ = precision_recall_fscore_support(
+        labels, preds, average='macro', zero_division=0
+    )
+
+    # --- confusion matrix ---
+    cm = confusion_matrix(labels, preds, labels=range(CONFIG['num_classes']))
+
+    return {
+        'acc': acc,
+        'prec': prec,
+        'rec': rec,
+        'f1': f1,
+        'prec_macro': prec_macro,
+        'rec_macro': rec_macro,
+        'f1_macro': f1_macro,
+        'cm': cm,
+    }
+
+
+# --------------------------------------------------------------------------------------
+# Pretty-print & plot helpers
+# --------------------------------------------------------------------------------------
+def print_metrics(metrics):
+    print("\nOverall accuracy: {:.4f}".format(metrics['acc']))
+    print("Macro precision : {:.4f}".format(metrics['prec_macro']))
+    print("Macro recall    : {:.4f}".format(metrics['rec_macro']))
+    print("Macro F1-score  : {:.4f}\n".format(metrics['f1_macro']))
+
+    # Per-class table
+    header = "{:<10s} {:>9s} {:>9s} {:>9s}".format("Class", "Precision", "Recall", "F1")
+    print(header)
+    print("-" * len(header))
+    for i, cname in enumerate(CONFIG['class_names']):
+        print("{:<10s} {:9.4f} {:9.4f} {:9.4f}".format(
+            cname, metrics['prec'][i], metrics['rec'][i], metrics['f1'][i]
+        ))
+
+def plot_confusion_matrix(cm: np.ndarray, fig_path: str):
+    fig, ax = plt.subplots(figsize=(8, 6))
+    sns.heatmap(
+        cm,
+        annot=True,
+        fmt='d',
+        cmap='Blues',
+        xticklabels=CONFIG['class_names'],
+        yticklabels=CONFIG['class_names'],
+        ax=ax
+    )
+    ax.set_xlabel('Predicted label')
+    ax.set_ylabel('True label')
+    ax.set_title('Confusion Matrix')
+    fig.tight_layout()
+    fig.savefig(fig_path, dpi=300)
+    print(f"\nConfusion-matrix figure saved to: {fig_path}")
+
+
+# --------------------------------------------------------------------------------------
+# Main driver
+# --------------------------------------------------------------------------------------
+def main():
+    print("Loading EMA model from:", CONFIG['checkpoint_path'])
+    ema_model = load_ema_model(CONFIG['checkpoint_path'])
+
+    print("Building data loader (validation split)…")
+    _, val_loader = get_train_dataloaders(
+        CONFIG['data_dir'],
+        CONFIG['batch_size'],
+        CONFIG['num_workers'],
+        CONFIG['image_size'],
+        CONFIG['data_dir2']
+    )
+
+    print("Running evaluation …")
+    metrics = evaluate(ema_model, val_loader)
+
+    print_metrics(metrics)
+    plot_confusion_matrix(metrics['cm'], CONFIG['cm_fig_path'])
+
+
+if __name__ == "__main__":
+    main()

@@ -174,7 +174,7 @@ def main(checkpoint: Path, interval: float):
 # -----------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    path = r"C:\Users\matan\Desktop\Code\Face_expression_recognition_model\EfficientNetv2\checkpoints\best_del.pth"
+    path = r"C:\Users\matan\Desktop\Code\Face_expression_recognition_model\EfficientNetv2\checkpoints\best_model.pth"
     interval = 0.5
 
     main(path, interval)

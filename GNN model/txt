@@ -1,0 +1,40 @@
+
+ 62%|██████▏   | 18/29 [2:15:40<1:14:12, 404.77s/it]INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+Loss: 1.6137 | acc: 0.3783 | precision: 0.3191 | recall: 0.3783 | f1: 0.3141
+
+ 66%|██████▌   | 19/29 [2:21:56<1:06:01, 396.18s/it][Epoch 19] New best val_acc: 0.3783 |
+Loss: 1.6143 | acc: 0.3738 | precision: 0.3048 | recall: 0.3738 | f1: 0.2995
+[Epoch 20] No improvement in val_acc for 1 epochs
+
+ 69%|██████▉   | 20/29 [2:28:16<58:42, 391.44s/it]  INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+Loss: 1.6078 | acc: 0.3774 | precision: 0.3298 | recall: 0.3774 | f1: 0.3130
+
+ 72%|███████▏  | 21/29 [2:34:33<51:35, 386.97s/it][Epoch 21] New best val_acc: 0.3774 |
+Loss: 1.6054 | acc: 0.3803 | precision: 0.3348 | recall: 0.3803 | f1: 0.3147
+
+ 76%|███████▌  | 22/29 [2:40:50<44:47, 383.92s/it][Epoch 22] New best val_acc: 0.3803 |
+Loss: 1.6050 | acc: 0.3763 | precision: 0.3156 | recall: 0.3763 | f1: 0.3069
+
+ 79%|███████▉  | 23/29 [2:47:05<38:08, 381.36s/it][Epoch 23] New best val_acc: 0.3763 |
+Loss: 1.6165 | acc: 0.3722 | precision: 0.3174 | recall: 0.3722 | f1: 0.3004
+[Epoch 24] No improvement in val_acc for 1 epochs
+
+ 83%|████████▎ | 24/29 [2:53:22<31:40, 380.13s/it]INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+Loss: 1.6017 | acc: 0.3790 | precision: 0.3234 | recall: 0.3790 | f1: 0.3124
+
+ 86%|████████▌ | 25/29 [2:59:39<25:16, 379.16s/it][Epoch 25] New best val_acc: 0.3790 |
+Loss: 1.5989 | acc: 0.3823 | precision: 0.3246 | recall: 0.3823 | f1: 0.3158
+[Epoch 26] New best val_acc: 0.3823 |
+
+ 90%|████████▉ | 26/29 [3:05:56<18:55, 378.38s/it]INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+Loss: 1.5987 | acc: 0.3852 | precision: 0.3299 | recall: 0.3852 | f1: 0.3194
+
+ 93%|█████████▎| 27/29 [3:12:13<12:36, 378.02s/it][Epoch 27] New best val_acc: 0.3852 |
+Loss: 1.5985 | acc: 0.3834 | precision: 0.3307 | recall: 0.3834 | f1: 0.3188
+
+ 97%|█████████▋| 28/29 [3:18:28<06:17, 377.19s/it][Epoch 28] New best val_acc: 0.3834 |
+Loss: 1.5980 | acc: 0.3835 | precision: 0.3256 | recall: 0.3835 | f1: 0.3185
+
+100%|██████████| 29/29 [3:24:45<00:00, 423.65s/it]
+[Epoch 29] New best val_acc: 0.3835 |
+Best trial: 0. Best value: 0.383527:   5%|▌         | 1/20 [3:24:46<64:50:35, 12286.09s/it][I 2025-06-12 02:51:02,287] Trial 0 finished with value: 0.38352674780639684 and parameters: {'hidden_dim': 128, 'lr': 0.0018419706053869353, 'weight_decay': 1.7896084202497804e-05}. Best is trial 0 with value: 0.38352674780639684.
